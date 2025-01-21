@@ -2,7 +2,7 @@ import express from 'express';
 import {
   createTaskHandler,
   getTasksHandler,
-  updateTaskStatusHandler,
+  updateTaskHandler,
   deleteTaskHandler,
 } from '../controllers/task.controller';
 import authenticate from '../middlewares/authenticate';
@@ -18,7 +18,7 @@ router.post('/', createTaskHandler);
 router.get('/', getTasksHandler);
 
 // Update Task Status
-router.put('/:taskId/status', updateTaskStatusHandler);
+router.put('/:taskId/status', updateTaskHandler);
 
 // Delete Task
 router.delete('/:taskId', deleteTaskHandler);

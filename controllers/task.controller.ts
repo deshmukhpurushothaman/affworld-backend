@@ -1,55 +1,60 @@
 import { Request, Response } from 'express';
-import TaskModel from '../models/task.model';
+import * as TaskService from '../services/task.service';
+import { HTTP_STATUS_CODE } from '../utils/const/constants';
 
-// Create a new task
 export const createTaskHandler = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   try {
     const { taskName, description } = req.body;
+
+    // Access the user from res.locals
     const userId = res.locals.user?.data._id;
 
     if (!userId) {
-      return res.status(400).json({ message: 'User not authenticated' });
+      return res.status(HTTP_STATUS_CODE.UNAUTHORIZED).json({
+        message: 'User not authenticated',
+      });
     }
 
-    const task = await TaskModel.create({ userId, taskName, description });
-
-    res.status(201).json(task);
+    // Call service to create a task
+    const task = await TaskService.createTask(taskName, description, userId);
+    return res.status(HTTP_STATUS_CODE.CREATED).json(task);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create task', error });
+    return res.status(HTTP_STATUS_CODE.INTERNAL_SERVER).json({
+      message: 'Failed to create task',
+      error: error.message,
+    });
   }
 };
 
-// Get all tasks grouped by status
 export const getTasksHandler = async (
   req: Request,
   res: Response
 ): Promise<any> => {
   try {
+    // Access the user from res.locals
     const userId = res.locals.user?.data._id;
 
     if (!userId) {
-      return res.status(400).json({ message: 'User not authenticated' });
+      return res.status(HTTP_STATUS_CODE.UNAUTHORIZED).json({
+        message: 'User not authenticated',
+      });
     }
 
-    const tasks = await TaskModel.find({ userId });
-
-    const groupedTasks = {
-      Pending: tasks.filter((task) => task.status === 'Pending'),
-      Completed: tasks.filter((task) => task.status === 'Completed'),
-      Done: tasks.filter((task) => task.status === 'Done'),
-    };
-
-    res.status(200).json(groupedTasks);
+    // Call service to get user tasks
+    const tasks = await TaskService.getUserTasks(userId);
+    return res.status(HTTP_STATUS_CODE.OK).json(tasks);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch tasks', error });
+    return res.status(HTTP_STATUS_CODE.INTERNAL_SERVER).json({
+      message: 'Failed to fetch tasks',
+      error: error.message,
+    });
   }
 };
 
-// Update task status
-export const updateTaskStatusHandler = async (
+export const updateTaskHandler = async (
   req: Request,
   res: Response
 ): Promise<any> => {
@@ -57,27 +62,18 @@ export const updateTaskStatusHandler = async (
     const { taskId } = req.params;
     const { status } = req.body;
 
-    if (!['Pending', 'Completed', 'Done'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
-    }
+    // Call service to update task status
+    const updatedTask = await TaskService.updateTaskStatus(taskId, status);
 
-    const task = await TaskModel.findByIdAndUpdate(
-      taskId,
-      { status },
-      { new: true }
-    );
-
-    if (!task) {
-      return res.status(404).json({ message: 'Task not found' });
-    }
-
-    res.status(200).json(task);
+    return res.status(HTTP_STATUS_CODE.OK).json(updatedTask);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update task status', error });
+    return res.status(HTTP_STATUS_CODE.INTERNAL_SERVER).json({
+      message: 'Failed to update task status',
+      error: error.message,
+    });
   }
 };
 
-// Delete a task
 export const deleteTaskHandler = async (
   req: Request,
   res: Response
@@ -85,14 +81,14 @@ export const deleteTaskHandler = async (
   try {
     const { taskId } = req.params;
 
-    const task = await TaskModel.findByIdAndDelete(taskId);
+    // Call service to delete task
+    const deletedTask = await TaskService.deleteTask(taskId);
 
-    if (!task) {
-      return res.status(404).json({ message: 'Task not found' });
-    }
-
-    res.status(200).json({ message: 'Task deleted successfully' });
+    return res.status(HTTP_STATUS_CODE.OK).json(deletedTask);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to delete task', error });
+    return res.status(HTTP_STATUS_CODE.INTERNAL_SERVER).json({
+      message: 'Failed to delete task',
+      error: error.message,
+    });
   }
 };

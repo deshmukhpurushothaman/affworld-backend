@@ -4,24 +4,6 @@ import { logger } from '../utils/logger/loggerUtil';
 import { UserDocument, UserModel } from '../models/user.model';
 
 // creates & stores new user in DB
-// export async function createUser(
-//   input: Omit<UserDocument, 'updatedAt' | 'createdAt' | 'comparePassword'> // Omit fields from UserDocument
-// ) {
-//   try {
-//     const userWithEmailExists = await UserModel.exists({
-//       email: input.email,
-//     });
-//     if (userWithEmailExists) {
-//       throw new Error(`Email already exists`);
-//     }
-//     const user = await new UserModel(input);
-//     await user.save();
-//     return omit(user.toJSON(), 'password');
-//   } catch (error: any) {
-//     throw error;
-//   }
-// }
-
 export const createUser = async (
   input: Partial<UserDocument>
 ): Promise<UserDocument> => {
