@@ -20,6 +20,8 @@ export interface UserDocument extends Document {
   provider?: string;
   tokenVersion?: number;
   termTokenVersion?: number;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: number;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(userPassword: string): Promise<boolean>;
@@ -34,6 +36,8 @@ export const usersSchema = new Schema<UserDocument>(
     provider: { type: String, default: 'local' }, // 'local', 'google', 'facebook', etc.
     tokenVersion: { type: Number, default: 0, unique: false },
     termTokenVersion: { type: Number, default: 0, unique: false },
+    resetPasswordToken: { type: String, select: false },
+    resetPasswordExpires: { type: Number, select: false },
   },
   {
     timestamps: true,

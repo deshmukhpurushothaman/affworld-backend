@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Document } from 'mongoose';
+import crypto from 'crypto';
 import { ERROR_MESSAGE, HTTP_STATUS_CODE } from '../utils/const/constants';
 import { logger } from '../utils/logger/loggerUtil';
 import { GEncryptedKey, UserDocument, UserModel } from '../models/user.model';
@@ -18,6 +19,7 @@ import {
   validatePassword,
 } from '../services/user.service';
 import { createUserSchema } from '../schemas/user.schema';
+import { sendEmail } from '../utils/mailServices/mailer';
 
 export const registerUserHandler = async (
   req: Request<
@@ -362,4 +364,110 @@ export const socialLoginHandler = async (
 const normalizeEmail = (email: string): string => {
   const [localPart, domainPart] = email.split('@');
   return `${localPart}@${domainPart.toLowerCase()}`;
+};
+
+export const forgotPasswordHandler = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res
+        .status(HTTP_STATUS_CODE.BAD_REQUEST)
+        .json({ message: 'Email is required' });
+    }
+
+    const user = await UserModel.findOne({ email });
+
+    if (!user) {
+      return res
+        .status(HTTP_STATUS_CODE.NOT_FOUND)
+        .json({ message: 'User not found' });
+    }
+
+    // Generate a secure reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    // Save the hashed token and expiration time to the user document
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // Token valid for 15 minutes
+    await user.save();
+
+    // Send reset link via email
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+    console.log(resetUrl);
+    const message = `
+        <p>You requested a password reset.</p>
+        <p>Click the link below to reset your password:</p>
+        <a href="${resetUrl}">${resetUrl}</a>
+        <p>This link will expire in 15 minutes.</p>
+      `;
+
+    await sendEmail({
+      to: email,
+      subject: 'Password Reset',
+      html: message,
+    });
+
+    return res.status(HTTP_STATUS_CODE.OK).json({
+      message: 'Password reset link sent to your email',
+    });
+  } catch (error: any) {
+    console.error(error);
+    return res
+      .status(HTTP_STATUS_CODE.INTERNAL_SERVER)
+      .json({ message: 'Internal server error' });
+  }
+};
+
+export const resetPasswordHandler = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password || password.length < 6) {
+      return res
+        .status(HTTP_STATUS_CODE.BAD_REQUEST)
+        .json({ message: 'Password must be at least 6 characters long' });
+    }
+
+    // Hash the token to compare it with the stored hashed token
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find the user by reset token and ensure it's not expired
+    const user = await UserModel.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() }, // Token is still valid
+    });
+
+    if (!user) {
+      return res
+        .status(HTTP_STATUS_CODE.BAD_REQUEST)
+        .json({ message: 'Invalid or expired token' });
+    }
+
+    // Update the user's password and clear the reset fields
+    user.password = password; // Ensure password hashing is handled in the model
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    return res.status(HTTP_STATUS_CODE.OK).json({
+      message: 'Password reset successfully',
+    });
+  } catch (error: any) {
+    console.error(error);
+    return res
+      .status(HTTP_STATUS_CODE.INTERNAL_SERVER)
+      .json({ message: 'Internal server error' });
+  }
 };
