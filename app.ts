@@ -15,7 +15,7 @@ import { ERROR_MESSAGE, HTTP_STATUS_CODE } from './utils/const/constants';
 //  import userAgentGrabber from './middlewares/userAgentGrabber';
 // import { connectDB } from './utils/dbConnect/connect';
 import user from './routes/user';
-// import seller from './routes/seller';
+import task from './routes/task.routes';
 
 export const startExpressServer = async () => {
   try {
@@ -98,6 +98,7 @@ export const startExpressServer = async () => {
     });
     // ROUTES
     app.use('/user', user);
+    app.use('/task', task);
 
     // minimalistic errorHandler if wrong route is hit
     app.use('/', (req: Request, res: Response) => {
